@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VaultBase — Database Integration Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="grain"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">◍</span>
+    <div class="brand-text">
+      <span class="brand-name">VaultBase</span>
+      <span class="brand-sub">Project 3 · Database Integration</span>
+    </div>
+  </div>
+  <div class="topbar-status">
+    <span class="dot" id="connDot"></span>
+    <span id="connText">checking vault…</span>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- Pillar rail -->
+  <nav class="pillars">
+    <button class="pillar active" data-view="overview">
+      <span class="pillar-num">01</span>
+      <span class="pillar-name">Blueprint</span>
+      <span class="pillar-desc">Schema & relationships</span>
+    </button>
+    <button class="pillar" data-view="customers">
+      <span class="pillar-num">02</span>
+      <span class="pillar-name">Customers</span>
+      <span class="pillar-desc">Primary table · CRUD</span>
+    </button>
+    <button class="pillar" data-view="orders">
+      <span class="pillar-num">03</span>
+      <span class="pillar-name">Orders</span>
+      <span class="pillar-desc">Foreign-keyed · CRUD</span>
+    </button>
+    <button class="pillar" data-view="shield">
+      <span class="pillar-num">04</span>
+      <span class="pillar-name">The Shield</span>
+      <span class="pillar-desc">Injection defense demo</span>
+    </button>
+  </nav>
+
+  <!-- ===================== VIEW: OVERVIEW ===================== -->
+  <section class="view active" id="view-overview">
+    <div class="view-head">
+      <h1>The Blueprint</h1>
+      <p>Two tables, bound by a key. Every customer can place many orders — a textbook one-to-many relationship, enforced at the schema level rather than trusted to application code.</p>
+    </div>
+
+    <div class="erd">
+      <div class="erd-table">
+        <div class="erd-title">customers</div>
+        <div class="erd-row pk">customer_id <span>PK · INTEGER</span></div>
+        <div class="erd-row">name <span>TEXT · NOT NULL</span></div>
+        <div class="erd-row">email <span>TEXT · UNIQUE</span></div>
+        <div class="erd-row">created_at <span>TEXT · DEFAULT now</span></div>
+      </div>
+      <div class="erd-link">
+        <span class="erd-card-one">1</span>
+        <svg viewBox="0 0 120 40" class="erd-wire"><path d="M0,20 L120,20" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="6 6"/></svg>
+        <span class="erd-card-many">∞</span>
+      </div>
+      <div class="erd-table">
+        <div class="erd-title">orders</div>
+        <div class="erd-row pk">order_id <span>PK · INTEGER</span></div>
+        <div class="erd-row fk">customer_id <span>FK → customers</span></div>
+        <div class="erd-row">item <span>TEXT · NOT NULL</span></div>
+        <div class="erd-row">total <span>REAL · CHECK ≥0</span></div>
+        <div class="erd-row">status <span>TEXT · CHECK enum</span></div>
+      </div>
+    </div>
+
+    <div class="stat-row" id="statRow">
+      <div class="stat-card"><span class="stat-num" id="statCustomers">—</span><span class="stat-label">Customers</span></div>
+      <div class="stat-card"><span class="stat-num" id="statOrders">—</span><span class="stat-label">Orders</span></div>
+      <div class="stat-card"><span class="stat-num" id="statRevenue">—</span><span class="stat-label">Lifetime value</span></div>
+      <div class="stat-card"><span class="stat-num" id="statPending">—</span><span class="stat-label">Pending orders</span></div>
+    </div>
+
+    <div class="rest-map">
+      <div class="rest-map-title">Mapping database actions to the web</div>
+      <div class="rest-grid">
+        <div class="rest-cell"><span class="op">CREATE</span><span class="eq">=</span><span class="http">POST</span><span class="eq">=</span><span class="sql">INSERT</span></div>
+        <div class="rest-cell"><span class="op">READ</span><span class="eq">=</span><span class="http">GET</span><span class="eq">=</span><span class="sql">SELECT</span></div>
+        <div class="rest-cell"><span class="op">UPDATE</span><span class="eq">=</span><span class="http">PUT</span><span class="eq">=</span><span class="sql">UPDATE</span></div>
+        <div class="rest-cell"><span class="op">DELETE</span><span class="eq">=</span><span class="http">DELETE</span><span class="eq">=</span><span class="sql">DELETE</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== VIEW: CUSTOMERS ===================== -->
+  <section class="view" id="view-customers">
+    <div class="view-head split">
+      <div>
+        <h1>Customers</h1>
+        <p>The primary table. Every record holds a unique email, enforced by a UNIQUE constraint — try adding a duplicate.</p>
+      </div>
+      <button class="btn-primary" id="btnNewCustomer">+ New customer</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Name</th><th>Email</th><th>Orders</th><th>Lifetime value</th><th>Joined</th><th></th></tr>
+        </thead>
+        <tbody id="customerRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== VIEW: ORDERS ===================== -->
+  <section class="view" id="view-orders">
+    <div class="view-head split">
+      <div>
+        <h1>Orders</h1>
+        <p>Each row carries a foreign key back to its customer. Totals are guarded by a CHECK constraint — negative values are rejected by the database itself.</p>
+      </div>
+      <button class="btn-primary" id="btnNewOrder">+ New order</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Customer</th><th>Item</th><th>Total</th><th>Status</th><th>Placed</th><th></th></tr>
+        </thead>
+        <tbody id="orderRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== VIEW: SHIELD ===================== -->
+  <section class="view" id="view-shield">
+    <div class="view-head">
+      <h1>The Shield</h1>
+      <p>Raw string concatenation lets attacker input become executable SQL. Parameterized queries treat input strictly as data. Try the classic payload below against this live API.</p>
+    </div>
+
+    <div class="shield-demo">
+      <div class="shield-panel">
+        <label for="injectionInput">Email field</label>
+        <input id="injectionInput" type="text" value="' OR 1=1 --" spellcheck="false">
+        <button class="btn-primary" id="btnRunInjection">Run against VaultBase API</button>
+        <div class="shield-result" id="shieldResult"></div>
+      </div>
+      <div class="shield-compare">
+        <div class="compare-col bad">
+          <div class="compare-head">Vulnerable</div>
+          <pre>query = "SELECT * FROM users
+WHERE email = '" + userInput + "'"</pre>
+          <p>String concatenation lets <code>' OR 1=1 --</code> close the quote early and rewrite the query's logic.</p>
+        </div>
+        <div class="compare-col good">
+          <div class="compare-head">VaultBase's approach</div>
+          <pre>db.prepare(
+  "SELECT * FROM customers WHERE email = ?"
+).get(email)</pre>
+          <p>The <code>?</code> placeholder is bound, never interpolated — the database can never confuse the payload for logic.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===================== Customer Modal ===================== -->
+<div class="modal-overlay" id="customerModalOverlay">
+  <div class="modal">
+    <h2 id="customerModalTitle">New customer</h2>
+    <form id="customerForm">
+      <input type="hidden" id="customerId">
+      <label>Name<input type="text" id="customerName" required placeholder="Jordan Patel"></label>
+      <label>Email<input type="email" id="customerEmail" required placeholder="jordan@email.com"></label>
+      <div class="form-error" id="customerFormError"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" data-close>Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== Order Modal ===================== -->
+<div class="modal-overlay" id="orderModalOverlay">
+  <div class="modal">
+    <h2 id="orderModalTitle">New order</h2>
+    <form id="orderForm">
+      <input type="hidden" id="orderId">
+      <label>Customer
+        <select id="orderCustomer" required></select>
+      </label>
+      <label>Item<input type="text" id="orderItem" required placeholder="Mechanical keyboard"></label>
+      <label>Total (₹)<input type="number" id="orderTotal" required min="0" step="0.01" placeholder="1999"></label>
+      <label>Status
+        <select id="orderStatus">
+          <option value="pending">pending</option>
+          <option value="shipped">shipped</option>
+          <option value="delivered">delivered</option>
+          <option value="cancelled">cancelled</option>
+        </select>
+      </label>
+      <div class="form-error" id="orderFormError"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" data-close>Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
